@@ -8,7 +8,7 @@ export function BasicLayout({
   tw,
 }: {
   title: string;
-  description?: string;
+  description?: string | null;
   children?: React.ReactNode;
   tw?: string;
 }) {
@@ -20,7 +20,9 @@ export function BasicLayout({
             <h1 style={{ fontFamily: "Cal" }} tw="text-6xl">
               {title}
             </h1>
-            <p tw="text-slate-600 text-3xl">{description}</p>
+            {description ? (
+              <p tw="text-slate-600 text-3xl">{description}</p>
+            ) : null}
           </div>
         </div>
         <div

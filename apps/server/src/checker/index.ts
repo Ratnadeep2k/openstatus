@@ -87,20 +87,22 @@ checkerRoute.post("/updateStatus", async (c) => {
       // We add the new region to the set
       await redis.sadd(redisKey, region);
       // let's add an expire to the set
-      await redis.expire(redisKey, 60 * 60 * 24);
       // We get the number of regions affected
       const nbAffectedRegion = await redis.scard(redisKey);
+      await redis.expire(redisKey, 60 * 60 * 24);
 
       const monitor = selectMonitorSchema.parse(currentMonitor);
 
       const numberOfRegions = monitor.regions.length;
 
-      if (nbAffectedRegion > numberOfRegions / 2) {
+      if (nbAffectedRegion >= numberOfRegions / 2 || numberOfRegions === 1) {
         await triggerNotifications({
           monitorId,
           statusCode,
           message,
           notifType: "degraded",
+          cronTimestamp,
+          incidentId: `${cronTimestamp}`,
         });
       }
     }
@@ -126,9 +128,9 @@ checkerRoute.post("/updateStatus", async (c) => {
       // We add the new region to the set
       await redis.sadd(redisKey, region);
       // let's add an expire to the set
-      await redis.expire(redisKey, 60 * 60 * 24);
       // We get the number of regions affected
       const nbAffectedRegion = await redis.scard(redisKey);
+      await redis.expire(redisKey, 60 * 60 * 24);
 
       const currentMonitor = await db
         .select()
@@ -145,7 +147,7 @@ checkerRoute.post("/updateStatus", async (c) => {
       );
       // If the number of affected regions is greater than half of the total region, we  trigger the alerting
       // 4 of 6 monitor need to fail to trigger an alerting
-      if (nbAffectedRegion > numberOfRegions / 2) {
+      if (nbAffectedRegion >= numberOfRegions / 2 || numberOfRegions === 1) {
         // let's refetch the incident to avoid race condition
         const incident = await db
           .select()
@@ -176,6 +178,10 @@ checkerRoute.post("/updateStatus", async (c) => {
             statusCode,
             message,
             notifType: "alert",
+            cronTimestamp,
+            incidentId: newIncident.length
+              ? String(newIncident[0]?.id)
+              : `${cronTimestamp}`,
           });
 
           if (newIncident.length > 0) {
@@ -218,9 +224,9 @@ checkerRoute.post("/updateStatus", async (c) => {
       //   // We add the new region to the set
       await redis.sadd(redisKey, region);
       //   // let's add an expire to the set
-      await redis.expire(redisKey, 60 * 60 * 24);
       //   // We get the number of regions affected
       const nbAffectedRegion = await redis.scard(redisKey);
+      await redis.expire(redisKey, 60 * 60 * 24);
 
       const currentMonitor = await db
         .select()
@@ -237,7 +243,7 @@ checkerRoute.post("/updateStatus", async (c) => {
       );
       //   // If the number of affected regions is greater than half of the total region, we  trigger the alerting
       //   // 4 of 6 monitor need to fail to trigger an alerting
-      if (nbAffectedRegion > numberOfRegions / 2) {
+      if (nbAffectedRegion >= numberOfRegions / 2 || numberOfRegions === 1) {
         const incident = await db
           .select()
           .from(incidentTable)
@@ -259,11 +265,14 @@ checkerRoute.post("/updateStatus", async (c) => {
             })
             .where(eq(incidentTable.id, incident.id))
             .run();
+
           await triggerNotifications({
             monitorId,
             statusCode,
             message,
             notifType: "recovery",
+            cronTimestamp,
+            incidentId: String(incident.id),
           });
 
           const monitor = await db

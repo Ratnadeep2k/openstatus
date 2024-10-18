@@ -43,12 +43,13 @@ const headersToArraySchema = z.preprocess(
 export const selectMonitorSchema = createSelectSchema(monitor, {
   periodicity: monitorPeriodicitySchema.default("10m"),
   status: monitorStatusSchema.default("active"),
-  jobType: monitorJobTypesSchema.default("other"),
+  jobType: monitorJobTypesSchema.default("http"),
   timeout: z.number().default(45),
   regions: regionsToArraySchema.default([]),
 }).extend({
   headers: headersToArraySchema.default([]),
   body: bodyToStringSchema.default(""),
+  // for tcp monitors the method is not needed
   method: monitorMethodsSchema.default("GET"),
 });
 
@@ -57,8 +58,11 @@ const headersSchema = z
   .optional();
 
 export const insertMonitorSchema = createInsertSchema(monitor, {
+  name: z
+    .string()
+    .min(1, "Name must be at least 1 character long")
+    .max(255, "Name must be at most 255 characters long"),
   periodicity: monitorPeriodicitySchema.default("10m"),
-  url: z.string().url(), // find a better way to not always start with "https://" including the `InputWithAddons`
   status: monitorStatusSchema.default("active"),
   regions: z.array(monitorRegionSchema).default([]).optional(),
   headers: headersSchema.default([]),

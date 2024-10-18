@@ -15,7 +15,7 @@ import {
 } from "@openstatus/db/src/schema";
 
 import { env } from "@/env";
-import type { payloadSchema } from "../schema";
+import type { httpPayloadSchema, tpcPayloadSchema } from "../schema";
 
 const periodicityAvailable = selectMonitorSchema.pick({ periodicity: true });
 
@@ -80,10 +80,14 @@ export const cron = async ({
 
   console.log(`Start cron for ${periodicity}`);
 
-  const monitors = z.array(selectMonitorSchema).parse(result);
+  const monitors = z.array(selectMonitorSchema).safeParse(result);
   const allResult = [];
+  if (!monitors.success) {
+    console.error(`Error while fetching the monitors ${monitors.error.errors}`);
+    throw new Error("Error while fetching the monitors");
+  }
 
-  for (const row of monitors) {
+  for (const row of monitors.data) {
     const selectedRegions = row.regions.length > 0 ? row.regions : ["ams"];
 
     const result = await db
@@ -91,11 +95,17 @@ export const cron = async ({
       .from(monitorStatusTable)
       .where(eq(monitorStatusTable.monitorId, row.id))
       .all();
-    const monitorStatus = z.array(selectMonitorStatusSchema).parse(result);
+    const monitorStatus = z.array(selectMonitorStatusSchema).safeParse(result);
+    if (!monitorStatus.success) {
+      console.error(
+        `Error while fetching the monitor status ${monitorStatus.error.errors}`,
+      );
+      continue;
+    }
 
     for (const region of selectedRegions) {
       const status =
-        monitorStatus.find((m) => region === m.region)?.status || "active";
+        monitorStatus.data.find((m) => region === m.region)?.status || "active";
       const response = createCronTask({
         row,
         timestamp,
@@ -146,19 +156,42 @@ const createCronTask = async ({
   status: MonitorStatus;
   region: string;
 }) => {
-  const payload: z.infer<typeof payloadSchema> = {
-    workspaceId: String(row.workspaceId),
-    monitorId: String(row.id),
-    url: row.url,
-    method: row.method || "GET",
-    cronTimestamp: timestamp,
-    body: row.body,
-    headers: row.headers,
-    status: status,
-    assertions: row.assertions ? JSON.parse(row.assertions) : null,
-    degradedAfter: row.degradedAfter,
-    timeout: row.timeout,
-  };
+  let payload:
+    | z.infer<typeof httpPayloadSchema>
+    | z.infer<typeof tpcPayloadSchema>
+    | null = null;
+  //
+  if (row.jobType === "http") {
+    payload = {
+      workspaceId: String(row.workspaceId),
+      monitorId: String(row.id),
+      url: row.url,
+      method: row.method || "GET",
+      cronTimestamp: timestamp,
+      body: row.body,
+      headers: row.headers,
+      status: status,
+      assertions: row.assertions ? JSON.parse(row.assertions) : null,
+      degradedAfter: row.degradedAfter,
+      timeout: row.timeout,
+    };
+  }
+  if (row.jobType === "tcp") {
+    payload = {
+      workspaceId: String(row.workspaceId),
+      monitorId: String(row.id),
+      url: row.url,
+      status: status,
+      assertions: row.assertions ? JSON.parse(row.assertions) : null,
+      cronTimestamp: timestamp,
+      degradedAfter: row.degradedAfter,
+      timeout: row.timeout,
+    };
+  }
+
+  if (!payload) {
+    throw new Error("Invalid jobType");
+  }
 
   const newTask: google.cloud.tasks.v2beta3.ITask = {
     httpRequest: {
@@ -168,7 +201,7 @@ const createCronTask = async ({
         Authorization: `Basic ${env.CRON_SECRET}`,
       },
       httpMethod: "POST",
-      url: `https://openstatus-checker.fly.dev/checker?monitor_id=${row.id}`,
+      url: generateUrl({ row }),
       body: Buffer.from(JSON.stringify(payload)).toString("base64"),
     },
     scheduleTime: {
@@ -179,3 +212,14 @@ const createCronTask = async ({
   const request = { parent: parent, task: newTask };
   return client.createTask(request);
 };
+
+function generateUrl({ row }: { row: z.infer<typeof selectMonitorSchema> }) {
+  switch (row.jobType) {
+    case "http":
+      return `https://openstatus-checker.fly.dev/checker/http?monitor_id=${row.id}`;
+    case "tcp":
+      return `https://openstatus-checker.fly.dev/checker/tcp?monitor_id=${row.id}`;
+    default:
+      throw new Error("Invalid jobType");
+  }
+}

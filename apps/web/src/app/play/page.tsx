@@ -5,10 +5,10 @@ import {
   Gauge,
   Palette,
   PanelTop,
+  Table,
 } from "lucide-react";
 import type { Metadata } from "next";
 
-import { BackButton } from "@/components/layout/back-button";
 import type { CardProps } from "@/components/play/card";
 import { Card } from "@/components/play/card";
 import {
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export default async function PlayPage() {
   return (
     <>
-      <div className="my-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:my-16 md:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {playgrounds.map((play, i) => {
           const isFirst = i === 0;
           return (
@@ -53,7 +53,7 @@ export default async function PlayPage() {
 const playgrounds: CardProps[] = [
   {
     href: "/play/checker",
-    title: "Speed Checker",
+    title: "Global Speed Checker",
     description:
       "Get speed insights for your api, website from multiple regions. No account needed.",
     icon: Gauge,
@@ -91,5 +91,12 @@ const playgrounds: CardProps[] = [
     description:
       "Use the endpoint to return the desired error code for testing purposes.",
     icon: FileCode,
+  },
+  {
+    href: "https://logs.run",
+    title: "Data Table Demo",
+    description:
+      "Tanstack table with sorting, filtering, and infinite scroll. Combined with cmdk.",
+    icon: Table,
   },
 ];

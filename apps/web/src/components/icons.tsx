@@ -18,10 +18,11 @@ import {
   FileClock,
   Fingerprint,
   Gauge,
-  Globe2,
+  Globe,
   Hammer,
   Hourglass,
   Image,
+  Info,
   KeyRound,
   Laptop,
   LayoutDashboard,
@@ -33,6 +34,7 @@ import {
   MessageCircle,
   Minus,
   Moon,
+  Network,
   Newspaper,
   Package,
   PanelTop,
@@ -43,6 +45,7 @@ import {
   Ratio,
   Search,
   SearchCheck,
+  Server,
   Siren,
   Sparkles,
   SunMedium,
@@ -61,6 +64,7 @@ import {
 import type { LucideIcon, LucideProps } from "lucide-react";
 
 export type Icon = LucideIcon;
+export type IconProps = LucideProps;
 export type ValidIcon = keyof typeof Icons;
 
 export const Icons = {
@@ -85,7 +89,7 @@ export const Icons = {
   tag: Tag,
   trash: Trash,
   twitter: TwitterIcon,
-  globe: Globe2,
+  globe: Globe,
   plug: Plug,
   copy: Copy,
   check: Check,
@@ -97,6 +101,7 @@ export const Icons = {
   zap: Zap,
   eye: Eye,
   "eye-off": EyeOff,
+  network: Network,
   users: Users,
   key: KeyRound,
   "credit-card": CreditCard,
@@ -122,6 +127,8 @@ export const Icons = {
   user: UserCircle,
   camera: Camera,
   "book-open-check": BookOpenCheck,
+  info: Info,
+  server: Server,
   discord: ({ ...props }: LucideProps) => (
     <svg viewBox="0 0 640 512" {...props}>
       <path

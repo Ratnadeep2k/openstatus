@@ -1,11 +1,10 @@
 "use client";
 
 import { Check, ChevronsUpDown, Globe2 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
 import type { Region } from "@openstatus/tinybird";
-import { Button } from "@openstatus/ui/src/components/button";
+import { Button, type ButtonProps } from "@openstatus/ui/src/components/button";
 import {
   Command,
   CommandEmpty,
@@ -26,49 +25,54 @@ import {
   flyRegionsDict,
 } from "@openstatus/utils";
 
-import useUpdateSearchParams from "@/hooks/use-update-search-params";
 import { cn } from "@/lib/utils";
+import { flyRegions } from "@openstatus/db/src/schema/constants";
+import { parseAsArrayOf, parseAsStringLiteral, useQueryState } from "nuqs";
+
+interface RegionsPresetProps extends ButtonProps {
+  regions: Region[];
+  selectedRegions: Region[];
+}
 
 export function RegionsPreset({
   regions,
   selectedRegions,
   className,
-}: {
-  regions: Region[];
-  selectedRegions: Region[];
-  className?: string;
-}) {
-  const [selected, setSelected] = React.useState<Region[]>(selectedRegions);
-  const router = useRouter();
-  const pathname = usePathname();
-  const updateSearchParams = useUpdateSearchParams();
+  ...props
+}: RegionsPresetProps) {
+  // TODO: check with the RSC pages
+  const [selected, setSelected] = useQueryState(
+    "regions",
+    parseAsArrayOf(parseAsStringLiteral(flyRegions))
+      .withDefault(selectedRegions.filter((r) => regions?.includes(r)))
+      .withOptions({
+        shallow: false, // required for SSR to call the RSC
+      }),
+  );
 
   const allSelected = regions.every((r) => selected.includes(r));
 
-  React.useEffect(() => {
-    if (!allSelected) {
-      const searchParams = updateSearchParams({ regions: selected.join(",") });
-      router.replace(`${pathname}?${searchParams}`, { scroll: false });
-    } else if (allSelected) {
-      const searchParams = updateSearchParams({ regions: null });
-      router.replace(`${pathname}?${searchParams}`, { scroll: false });
-    }
-  }, [allSelected, router, pathname, updateSearchParams, selected]);
+  const regionsByContinent = regions
+    .reduce(
+      (prev, curr) => {
+        const region = flyRegionsDict[curr];
 
-  const regionsByContinent = regions.reduce(
-    (prev, curr) => {
-      const region = flyRegionsDict[curr];
+        const item = prev.find((r) => r.continent === region.continent);
 
-      if (prev[region.continent]) {
-        prev[region.continent].push(region);
-      } else {
-        prev[region.continent] = [region];
-      }
+        if (item) {
+          item.data.push(region);
+        } else {
+          prev.push({
+            continent: region.continent,
+            data: [region],
+          });
+        }
 
-      return prev;
-    },
-    {} as Record<Continent, RegionInfo[]>,
-  );
+        return prev;
+      },
+      [] as { continent: Continent; data: RegionInfo[] }[],
+    )
+    .sort((a, b) => a.continent.localeCompare(b.continent));
 
   return (
     <Popover>
@@ -77,9 +81,10 @@ export function RegionsPreset({
           size="lg"
           variant="outline"
           className={cn("px-3 shadow-none", className)}
+          {...props}
         >
           <Globe2 className="mr-2 h-4 w-4" />
-          <span>
+          <span className="whitespace-nowrap">
             <code>{selected.length}</code> Regions
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -105,10 +110,10 @@ export function RegionsPreset({
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
-            {Object.entries(regionsByContinent).map(([key, regions]) => {
+            {regionsByContinent.map(({ continent, data }) => {
               return (
-                <CommandGroup key={key} heading={key}>
-                  {regions.map((region) => {
+                <CommandGroup key={continent} heading={continent}>
+                  {data.map((region) => {
                     const { code, flag, location, continent } = region;
                     const isSelected = selected.includes(code);
                     return (

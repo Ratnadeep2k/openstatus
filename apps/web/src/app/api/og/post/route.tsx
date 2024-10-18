@@ -22,9 +22,9 @@ export async function GET(req: Request) {
 
   const title =
     (searchParams.has("title") && searchParams.get("title")) || TITLE;
-  const description =
-    (searchParams.has("description") && searchParams.get("description")) ||
-    DESCRIPTION;
+  const description = searchParams.has("description")
+    ? searchParams.get("description")
+    : undefined;
   const image = searchParams.has("image")
     ? searchParams.get("image")
     : undefined;

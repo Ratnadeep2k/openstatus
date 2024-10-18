@@ -170,6 +170,7 @@ export const MonitorSchema = z
       }),
     assertions: z
       .preprocess((val) => {
+        console.log("val", val);
         try {
           if (Array.isArray(val)) return val;
           if (String(val).length > 0) {
@@ -199,6 +200,12 @@ export const MonitorSchema = z
       .boolean()
       .default(false)
       .openapi({ description: "If the monitor is public" }),
+    degradedAfter: z.number().nullish().openapi({
+      description: "The time after the monitor is considered degraded",
+    }),
+    timeout: z.number().nullish().default(45000).openapi({
+      description: "The timeout of the request",
+    }),
   })
   .openapi({
     description: "The monitor",
